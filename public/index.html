@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Assistant</title>
+    <style>
+        :root {
+            --primary-color: #8ab4f8;
+            --secondary-color: #81c995;
+            --dark-color: #e8eaed;
+            --light-color: #202124;
+            --border-color: #5f6368;
+        }
+        
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light-color);
+            color: var(--dark-color);
+        }
+        
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background-color: #303134;
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .header img {
+            width: 40px;
+            margin-right: 15px;
+        }
+        
+        #query-form {
+            background: #303134;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 16px;
+            resize: vertical;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #3367d6;
+        }
+        
+        .response-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .response-toggle {
+            background-color: #5f6368;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .response-toggle:hover {
+            background-color: #3367d6;
+        }
+        
+        #response {
+            background: #303134;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            min-height: 200px;
+            line-height: 1.6;
+        }
+        
+        .history-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .history-item:hover {
+            background-color: var(--light-color);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h3>Research History</h3>
+            <div id="history"></div>
+            <button id="clear-history" class="history-button">Clear History</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="header">
+                <h1>AI Research Assistant</h1>
+            </div>
+            
+            <form id="query-form">
+                <textarea id="query" placeholder="Enter your research question or topic here..." required></textarea>
+                <button type="submit">Analyze Research</button>
+            </form>
+            
+            <div id="response"></div>
+        </div>
+    </div>
+
+    <script>
+        // Load saved history on page load
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('researchHistory') || '[]');
+            const historyDiv = document.getElementById('history');
+            
+            historyDiv.innerHTML = '';
+            history.forEach((item, index) => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.textContent = item.query.substring(0, 50) + (item.query.length > 50 ? '...' : '');
+                historyItem.addEventListener('click', () => {
+                    document.getElementById('query').value = item.query;
+                    document.getElementById('query-form').dispatchEvent(new Event('submit'));
+                });
+                historyDiv.appendChild(historyItem);
+            });
+        }
+        
+        document.getElementById('clear-history').addEventListener('click', () => {
+            localStorage.removeItem('researchHistory');
+            document.getElementById('history').innerHTML = '';
+        });
+        
+        // Initialize history on page load
+        document.addEventListener('DOMContentLoaded', loadHistory);
+        
+        document.getElementById('query-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const query = document.getElementById('query').value;
+            const responseDiv = document.getElementById('response');
+            
+            responseDiv.innerHTML = 'Thinking...';
+            
+            // Save to history
+            const history = JSON.parse(localStorage.getItem('researchHistory') || '[]');
+            history.unshift({ query, timestamp: new Date().toISOString() });
+            localStorage.setItem('researchHistory', JSON.stringify(history.slice(0, 50))); // Keep last 50 items
+            loadHistory();
+            
+            try {
+                const res = await fetch('/api/research', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                
+                const data = await res.json();
+                
+                // Create toggle buttons for each response type
+                let html = '<div class="response-buttons">';
+                html += '<button class="response-toggle" data-target="gemini-response">AI Response</button>';
+                html += '<button class="response-toggle" data-target="wikipedia-response">Wikipedia</button>';
+                html += '<button class="response-toggle" data-target="europepmc-response">Research Papers</button>';
+                html += '</div>';
+                
+                // Create collapsible sections for each response
+                html += '<div id="gemini-response" class="response-section">';
+                html += '<h3>AI Response:</h3>';
+                html += `<p>${data.geminiResponse || 'No response from Gemini'}</p>`;
+                html += '</div>';
+                
+                html += '<div id="wikipedia-response" class="response-section" style="display:none">';
+                if (data.wikipediaResponse && data.wikipediaResponse.length > 0) {
+                    html += '<h3>Wikipedia Summary:</h3>';
+                    data.wikipediaResponse.forEach(item => {
+                        html += `<div class="wikipedia-summary">`;
+                        if (item.extract) {
+                            html += `<p>${item.extract}</p>`;
+                        } else {
+                            html += `<p>${item.snippet}</p>`;
+                        }
+                        html += `<a href="https://en.wikipedia.org/?curid=${item.pageid}" target="_blank" class="read-more">Read more on Wikipedia</a>`;
+                        html += `</div>`;
+                    });
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+                
+                html += '<div id="europepmc-response" class="response-section" style="display:none">';
+                if (data.europepmcResponse === null) {
+                    html += '<h3>Research Papers:</h3>';
+                    html += '<p>Papers not found</p>';
+                } else if (data.europepmcResponse && data.europepmcResponse.length > 0) {
+                    html += '<h3>Research Papers:</h3>';
+                    data.europepmcResponse.forEach(paper => {
+                        html += `<div class="paper-summary">`;
+                        html += `<h4>${paper.title}</h4>`;
+                        html += `<p><strong>Authors:</strong> ${paper.authors.join(', ')}</p>`;
+                        html += `<p><strong>Abstract:</strong> ${paper.abstract}</p>`;
+                        html += `<p><strong>Citations:</strong> ${paper.citations}</p>`;
+                        html += `<a href="${paper.url}" target="_blank" class="read-more">View full paper</a>`;
+                        html += `</div>`;
+                    });
+                }
+                html += '</div>';
+                
+                responseDiv.innerHTML = html;
+                
+                // Add toggle functionality
+                document.querySelectorAll('.response-toggle').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const target = button.dataset.target;
+                        document.querySelectorAll('.response-section').forEach(section => {
+                            section.style.display = 'none';
+                        });
+                        document.getElementById(target).style.display = 'block';
+                    });
+                });
+            } catch (error) {
+                responseDiv.innerHTML = 'Error connecting to the server';
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
